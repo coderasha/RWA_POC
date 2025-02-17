@@ -8,8 +8,8 @@ contract RWARoles is AccessControl {
     bytes32 public constant BUYER_ROLE = keccak256("BUYER_ROLE");
 
     constructor(address admin) {
-        _setupRole(DEFAULT_ADMIN_ROLE, admin);
-        _setupRole(SELLER_ROLE, admin);
+        _grantRole(DEFAULT_ADMIN_ROLE, admin);
+        _grantRole(SELLER_ROLE, admin);
     }
 
     modifier onlySeller() {
@@ -22,11 +22,11 @@ contract RWARoles is AccessControl {
         _;
     }
 
-    function addSeller(address account) external {
+    function addSeller(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
         grantRole(SELLER_ROLE, account);
     }
 
-    function addBuyer(address account) external {
+    function addBuyer(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
         grantRole(BUYER_ROLE, account);
     }
 }
