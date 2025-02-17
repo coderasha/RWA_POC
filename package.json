@@ -1,0 +1,11 @@
+{
+  "name": "rwa-poc",
+  "version": "1.0.0",
+  "description": "Tokenizing any Real World Asset",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Ashadipta PAti",
+  "license": "ISC"
+}
