@@ -4,12 +4,15 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./RWARoles.sol";
-import "./RWAPayments.sol";
+import "./RWALeaseManager.sol";
 
-contract RWA is ERC1155, RWARoles, RWAPayments {
+contract RWA is ERC1155, Ownable, RWARoles {
     string public name;
     string public symbol;
+    uint256 public platformFee = 100; // 1% default
     uint256 private nextTokenId = 1;
+    address public platformFeeCollector;
+    RWALeaseManager public leaseManager;
 
     struct Asset {
         uint256 totalSupply;
@@ -23,6 +26,8 @@ contract RWA is ERC1155, RWARoles, RWAPayments {
 
     event AssetCreated(uint256 indexed tokenId, uint256 totalSupply, uint256 salePrice, uint256 leasePrice);
     event AssetTransferred(uint256 indexed tokenId, address from, address to, uint256 amount);
+    event PlatformFeeUpdated(uint256 newFee);
+    event PlatformFeeCollectorUpdated(address indexed newCollector);
 
     constructor(
         string memory _name,
@@ -30,12 +35,28 @@ contract RWA is ERC1155, RWARoles, RWAPayments {
         string memory uri,
         address admin,
         address _platformFeeCollector
-    ) ERC1155(uri) RWARoles(admin) RWAPayments(_platformFeeCollector) {
+    ) ERC1155(uri) RWARoles(admin) Ownable(admin) {
+        require(_platformFeeCollector != address(0), "Invalid fee collector");
         name = _name;
         symbol = _symbol;
+        platformFeeCollector = _platformFeeCollector;
+        leaseManager = new RWALeaseManager(_platformFeeCollector);
     }
 
-    function createAsset(uint256 totalSupply, uint256 fungibleSupply, uint256 salePrice, uint256 leasePrice) external onlySeller {
+    function setPlatformFee(uint256 newFee) external onlyOwner {
+        require(newFee <= 1000, "Fee too high");
+        platformFee = newFee;
+        emit PlatformFeeUpdated(newFee);
+    }
+
+    function setPlatformFeeCollector(address newCollector) external onlyOwner {
+        require(newCollector != address(0), "Invalid address");
+        platformFeeCollector = newCollector;
+        emit PlatformFeeCollectorUpdated(newCollector);
+    }
+
+    function createAsset(uint256 totalSupply, uint256 fungibleSupply, uint256 salePrice, uint256 leasePrice) external {
+        require(hasRole(SELLER_ROLE, msg.sender), "Only Sellers can create assets");
         require(totalSupply >= fungibleSupply, "Invalid supply values");
         uint256 tokenId = nextTokenId++;
         assets[tokenId] = Asset(totalSupply, fungibleSupply, salePrice, leasePrice, msg.sender);
@@ -47,8 +68,17 @@ contract RWA is ERC1155, RWARoles, RWAPayments {
         require(balanceOf(msg.sender, tokenId) >= amount, "Insufficient balance");
         require(msg.value >= assets[tokenId].salePrice * amount, "Insufficient payment");
 
-        _handlePayment(msg.sender, msg.value);
+        uint256 fee = (msg.value * platformFee) / 10000;
+        uint256 sellerAmount = msg.value - fee;
+
+        payable(platformFeeCollector).transfer(fee);
+        payable(msg.sender).transfer(sellerAmount);
+
         _safeTransferFrom(msg.sender, to, tokenId, amount, "");
         emit AssetTransferred(tokenId, msg.sender, to, amount);
+    }
+
+    function leaseAsset(uint256 tokenId, address lessee, uint256 finePercentage) external payable {
+        leaseManager.leaseAsset{value: msg.value}(tokenId, msg.sender, lessee, finePercentage);
     }
 }
