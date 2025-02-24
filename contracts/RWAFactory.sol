@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./RWA.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./RWA.sol";
 
 contract RWAFactory is Ownable {
     event NewAssetCategoryCreated(address indexed assetContract, string category);
