@@ -7,6 +7,7 @@ import "./RWA.sol";
 contract RWAFactory is Ownable {
     event NewAssetCategoryCreated(address indexed assetContract, string category);
     event PlatformFeeCollectorUpdated(address indexed newCollector);
+    event AssetCategoryRemoved(string category, address assetContract);
 
     mapping(string => address) public assetCategories;
     address public platformFeeCollector;
@@ -32,5 +33,12 @@ contract RWAFactory is Ownable {
         RWA newAsset = new RWA(name, symbol, uri, msg.sender, platformFeeCollector);
         assetCategories[category] = address(newAsset);
         emit NewAssetCategoryCreated(address(newAsset), category);
+    }
+
+    function removeAssetCategory(string memory category) external onlyOwner {
+        require(assetCategories[category] != address(0), "Category does not exist");
+        address assetContract = assetCategories[category];
+        delete assetCategories[category];
+        emit AssetCategoryRemoved(category, assetContract);
     }
 }
